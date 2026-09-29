@@ -64,8 +64,7 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    implementation fg.deobf("curse.maven:applied-energistics-2-223794:7148487")
-    runtimeOnly fg.deobf("curse.maven:guideme-1173950:8204776")
+    implementation fg.deobf("curse.maven:applied-energistics-2-223794:6357138")
     compileOnly fg.deobf("curse.maven:projecte-226410:4901949")
     runtimeOnly fg.deobf("curse.maven:projecte-226410:4901949")
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
