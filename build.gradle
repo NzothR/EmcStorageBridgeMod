@@ -53,8 +53,19 @@ minecraft {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+repositories {
+    maven {
+        name = 'CurseMaven'
+        url = 'https://www.cursemaven.com'
+    }
+}
+
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly fg.deobf("curse.maven:applied-energistics-2-223794:8991271")
+    runtimeOnly fg.deobf("curse.maven:applied-energistics-2-223794:8991271")
+    compileOnly fg.deobf("curse.maven:projecte-226410:4901949")
+    runtimeOnly fg.deobf("curse.maven:projecte-226410:4901949")
 }
 
 tasks.named('processResources', ProcessResources).configure {
