@@ -13,6 +13,7 @@ import com.refinedmods.refinedstorage.api.storage.AccessType;
 import com.refinedmods.refinedstorage.api.storage.cache.IStorageCache;
 import com.refinedmods.refinedstorage.api.storage.externalstorage.IExternalStorage;
 import com.refinedmods.refinedstorage.api.storage.externalstorage.IExternalStorageContext;
+import com.refinedmods.refinedstorage.apiimpl.network.node.ExternalStorageNetworkNode;
 import com.refinedmods.refinedstorage.api.util.Action;
 import com.refinedmods.refinedstorage.api.util.IComparer;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
@@ -117,13 +118,35 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
 
     @Override
     public ItemStack extract(ItemStack prototype, int size, int flags, Action action) {
-        if (prototype.isEmpty() || size <= 0 || !canExtract(prototype)) return ItemStack.EMPTY;
+        boolean active = isActive();
+        boolean acceptedByContext = context.acceptsItem(prototype);
+        if (prototype.isEmpty() || size <= 0 || !canExtract(prototype)) {
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] RS extract rejected before EMC lookup owner={} item={} count={} action={} active={} ownerBound={} access={} acceptedByContext={} storagePresent={}",
+                        owner(), prototype, size, action, active, owner() != null, context.getAccessType(),
+                        acceptedByContext, isPresent());
+            }
+            return ItemStack.EMPTY;
+        }
         ItemStack item = prototype.copy();
         item.setCount(1);
         long simulated = EmcTransactionCore.extract(owner(), item, size, blockEntity.getNbtPolicy(), false);
         boolean strictQuantity = (flags & IComparer.COMPARE_QUANTITY) == IComparer.COMPARE_QUANTITY;
-        if (simulated <= 0 || (strictQuantity && simulated < size)) return ItemStack.EMPTY;
-        if (action == Action.SIMULATE) return withCount(prototype, (int) Math.min(simulated, size));
+        if (simulated <= 0 || (strictQuantity && simulated < size)) {
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] RS extract has insufficient EMC owner={} item={} requested={} simulated={} strictQuantity={} action={} NBT={}",
+                        owner(), prototype, size, simulated, strictQuantity, action, blockEntity.getNbtPolicy());
+            }
+            return ItemStack.EMPTY;
+        }
+        if (action == Action.SIMULATE) {
+            ItemStack result = withCount(prototype, (int) Math.min(simulated, size));
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] RS extract simulated owner={} item={} requested={} returned={}",
+                        owner(), prototype, size, result.getCount());
+            }
+            return result;
+        }
 
         long extracted = EmcTransactionCore.extract(owner(), item, Math.min(simulated, size),
                 blockEntity.getNbtPolicy(), true);
@@ -136,7 +159,13 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
                         Integer.toHexString(System.identityHashCode(reportedNetwork)));
             }
         }
-        return extracted <= 0 ? ItemStack.EMPTY : withCount(prototype, (int) Math.min(extracted, Integer.MAX_VALUE));
+        ItemStack result = extracted <= 0 ? ItemStack.EMPTY
+                : withCount(prototype, (int) Math.min(extracted, Integer.MAX_VALUE));
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] RS extract performed owner={} item={} requested={} simulated={} extracted={} returned={}",
+                    owner(), prototype, size, simulated, extracted, result.getCount());
+        }
+        return result;
     }
 
     @Override
@@ -177,8 +206,11 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
 
     boolean isPresent() {
         var level = blockEntity.getLevel();
-        return level != null && !blockEntity.isRemoved() && level.hasChunkAt(blockEntity.getBlockPos())
-                && level.getBlockEntity(blockEntity.getBlockPos()) == blockEntity;
+        if (level == null || blockEntity.isRemoved() || !level.hasChunkAt(blockEntity.getBlockPos())
+                || level.getBlockEntity(blockEntity.getBlockPos()) != blockEntity) {
+            return false;
+        }
+        return context instanceof ExternalStorageNetworkNode node && node.getItemStorages().contains(this);
     }
 
     private boolean isActive() {
