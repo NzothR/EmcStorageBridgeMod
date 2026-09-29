@@ -20,6 +20,8 @@ public final class RsEmcExternalStorageProvider implements IExternalStorageProvi
 
     @Override
     public int getPriority() {
-        return 0;
+        // RS 1.12 stores providers in a TreeSet comparing priority only; priority 0
+        // collides with RS's built-in item provider and silently discards one entry.
+        return 100;
     }
 }
