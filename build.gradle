@@ -23,6 +23,8 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
 
             mods {
                 "${mod_id}" {
@@ -62,8 +64,8 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    compileOnly fg.deobf("curse.maven:applied-energistics-2-223794:8991271")
-    runtimeOnly fg.deobf("curse.maven:applied-energistics-2-223794:8991271")
+    implementation fg.deobf("curse.maven:applied-energistics-2-223794:7148487")
+    runtimeOnly fg.deobf("curse.maven:guideme-1173950:8204776")
     compileOnly fg.deobf("curse.maven:projecte-226410:4901949")
     runtimeOnly fg.deobf("curse.maven:projecte-226410:4901949")
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'

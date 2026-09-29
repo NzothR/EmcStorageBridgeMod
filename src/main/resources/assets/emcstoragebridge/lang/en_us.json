@@ -1,0 +1,14 @@
+{
+  "item.emcstoragebridge.emc_storage_cell": "EMC Storage Cell",
+  "itemGroup.emcstoragebridge": "EMC Storage Bridge",
+  "message.emcstoragebridge.cell_bound": "EMC Storage Cell bound to you.",
+  "message.emcstoragebridge.cell_bound_to": "Cell owner: %s | NBT: %s",
+  "message.emcstoragebridge.nbt_policy": "NBT policy: %s",
+  "tooltip.emcstoragebridge.unbound": "Unbound EMC storage cell",
+  "tooltip.emcstoragebridge.bind_hint": "Right-click to bind this cell to yourself.",
+  "tooltip.emcstoragebridge.owner": "Owner: %s",
+  "tooltip.emcstoragebridge.nbt_policy": "NBT policy: %s",
+  "tooltip.emcstoragebridge.nbt_hint": "Shift-right-click to toggle NBT acceptance.",
+  "tooltip.emcstoragebridge.policy.reject": "Reject",
+  "tooltip.emcstoragebridge.policy.allow": "Allow"
+}

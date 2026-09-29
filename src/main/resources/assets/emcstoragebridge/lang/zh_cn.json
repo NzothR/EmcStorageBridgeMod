@@ -1,0 +1,14 @@
+{
+  "item.emcstoragebridge.emc_storage_cell": "EMC 存储元件",
+  "itemGroup.emcstoragebridge": "EMC 存储桥接",
+  "message.emcstoragebridge.cell_bound": "EMC 存储元件已绑定到你。",
+  "message.emcstoragebridge.cell_bound_to": "元件所有者：%s | NBT：%s",
+  "message.emcstoragebridge.nbt_policy": "NBT 策略：%s",
+  "tooltip.emcstoragebridge.unbound": "未绑定的 EMC 存储元件",
+  "tooltip.emcstoragebridge.bind_hint": "右键绑定到自己。",
+  "tooltip.emcstoragebridge.owner": "所有者：%s",
+  "tooltip.emcstoragebridge.nbt_policy": "NBT 策略：%s",
+  "tooltip.emcstoragebridge.nbt_hint": "Shift+右键切换是否接受带 NBT 的物品。",
+  "tooltip.emcstoragebridge.policy.reject": "拒绝",
+  "tooltip.emcstoragebridge.policy.allow": "允许"
+}
