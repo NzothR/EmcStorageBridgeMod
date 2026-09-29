@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "emcstoragebridge:block/emc_interface"
+    }
+  }
+}

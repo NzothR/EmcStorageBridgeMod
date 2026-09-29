@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -27,6 +28,8 @@ public final class EmcDisplayCache {
     private static final Map<UUID, State> STATES = new HashMap<>();
     private static final Set<UUID> PENDING_OWNERS = new HashSet<>();
     private static final Set<UUID> PENDING_KNOWLEDGE_CHANGES = new HashSet<>();
+    private static final Map<UUID, Long> REVISIONS = new HashMap<>();
+    private static final AtomicLong NEXT_REVISION = new AtomicLong();
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private EmcDisplayCache() {
@@ -38,6 +41,7 @@ public final class EmcDisplayCache {
             PENDING_KNOWLEDGE_CHANGES.remove(owner);
             State removed = STATES.remove(owner);
             PENDING_OWNERS.remove(owner);
+            markChanged(owner);
             EmcEntryRegistry.refreshOwnerNetworks(owner);
             if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
                 LOGGER.info("[EMCStorageBridge] Applied deferred Knowledge invalidation owner={} cachedItems={} pendingLookup={}",
@@ -69,7 +73,10 @@ public final class EmcDisplayCache {
                             mapEntry.getKey(), state.items.size(), state.snapshot.size());
                 }
             }
-            if (changed) EmcEntryRegistry.refreshOwnerNetworks(mapEntry.getKey());
+            if (changed) {
+                markChanged(mapEntry.getKey());
+                EmcEntryRegistry.refreshOwnerNetworks(mapEntry.getKey());
+            }
         }
     }
 
@@ -92,13 +99,33 @@ public final class EmcDisplayCache {
         return state == null || state.snapshot.isEmpty();
     }
 
+    public static synchronized List<net.minecraft.world.item.ItemStack> getAvailableStacks(UUID owner, boolean allowNbt) {
+        State state = state(owner);
+        if (state == null || state.snapshot.isEmpty()) return List.of();
+        List<net.minecraft.world.item.ItemStack> result = new ArrayList<>(state.snapshot.size());
+        for (var entry : state.snapshot) {
+            if (!(entry.getKey() instanceof AEItemKey key) || (!allowNbt && key.hasTag())) continue;
+            net.minecraft.world.item.ItemStack stack = key.toStack();
+            stack.setCount((int) Math.min(Integer.MAX_VALUE, entry.getLongValue()));
+            if (!stack.isEmpty()) result.add(stack);
+        }
+        return result;
+    }
+
+    public static synchronized long revision(UUID owner) {
+        return owner == null ? 0 : REVISIONS.getOrDefault(owner, 0L);
+    }
+
     public static synchronized void refreshKey(UUID owner, ItemInfo info) {
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isEmpty()) return;
         State state = state(owner);
         if (state == null) return;
         boolean changed = update(state, info, account.get().getEmc());
-        if (changed) EmcEntryRegistry.refreshOwnerNetworks(owner);
+        if (changed) {
+            markChanged(owner);
+            EmcEntryRegistry.refreshOwnerNetworks(owner);
+        }
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {
@@ -114,12 +141,16 @@ public final class EmcDisplayCache {
         if (!state.items.contains(info)) state.items.add(info);
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isPresent() && update(state, info, account.get().getEmc())) {
+            markChanged(owner);
             EmcEntryRegistry.refreshOwnerNetworks(owner);
         }
     }
 
     public static synchronized void clear() {
-        for (UUID owner : STATES.keySet()) EmcEntryRegistry.refreshOwnerNetworks(owner);
+        for (UUID owner : STATES.keySet()) {
+            markChanged(owner);
+            EmcEntryRegistry.refreshOwnerNetworks(owner);
+        }
         STATES.clear();
         PENDING_OWNERS.clear();
         PENDING_KNOWLEDGE_CHANGES.clear();
@@ -161,6 +192,10 @@ public final class EmcDisplayCache {
         if (amount <= 0) state.snapshot.remove(key);
         else state.snapshot.set(key, amount);
         return true;
+    }
+
+    private static void markChanged(UUID owner) {
+        REVISIONS.put(owner, NEXT_REVISION.incrementAndGet());
     }
 
     private static final class State {

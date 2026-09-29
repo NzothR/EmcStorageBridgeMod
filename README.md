@@ -8,6 +8,11 @@ Applied Energistics 2 and Refined Storage as virtual storage.
 - Minecraft 1.20.1
 - Minecraft Forge 47.4.10
 - Java 17
+- Refined Storage 1.12.x is optional and provides the EMC Interface block for External Storage.
+
+Place an EMC Interface to bind it to yourself, then connect an RS External Storage block. Use
+ProjectE's Philosopher's Stone on the EMC Interface to toggle whether NBT-bearing items are
+accepted. RS remains responsible for external-storage filters, priority, and access mode.
 
 ## Development with IntelliJ IDEA
 

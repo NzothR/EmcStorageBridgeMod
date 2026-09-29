@@ -9,6 +9,12 @@
   "tooltip.emcstoragebridge.owner": "Owner: %s",
   "tooltip.emcstoragebridge.nbt_policy": "NBT policy: %s",
   "tooltip.emcstoragebridge.nbt_hint": "Shift-right-click to toggle NBT acceptance.",
+  "block.emcstoragebridge.emc_interface": "EMC Interface",
+  "tooltip.emcstoragebridge.emc_interface": "Place to bind to you. Connect an RS External Storage and right-click with a Philosopher's Stone to toggle NBT items.",
+  "message.emcstoragebridge.interface_bound": "EMC Interface bound to you.",
+  "message.emcstoragebridge.interface_not_owner": "Only the owner can change this EMC Interface.",
+  "message.emcstoragebridge.interface_nbt_allowed": "EMC Interface now accepts NBT items.",
+  "message.emcstoragebridge.interface_nbt_rejected": "EMC Interface now rejects NBT items.",
   "tooltip.emcstoragebridge.policy.reject": "Reject",
   "tooltip.emcstoragebridge.policy.allow": "Allow"
 }

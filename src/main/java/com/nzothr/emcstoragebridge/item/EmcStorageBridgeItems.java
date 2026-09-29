@@ -1,6 +1,7 @@
 package com.nzothr.emcstoragebridge.item;
 
 import com.nzothr.emcstoragebridge.EmcStorageBridgeMod;
+import com.nzothr.emcstoragebridge.rs.EmcInterfaceBlocks;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -18,7 +19,10 @@ public final class EmcStorageBridgeItems {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.emcstoragebridge"))
                     .icon(() -> EMC_STORAGE_CELL.get().getDefaultInstance())
-                    .displayItems((parameters, output) -> output.accept(EMC_STORAGE_CELL.get()))
+                    .displayItems((parameters, output) -> {
+                        output.accept(EMC_STORAGE_CELL.get());
+                        output.accept(EmcInterfaceBlocks.EMC_INTERFACE_ITEM.get());
+                    })
                     .build());
 
     private EmcStorageBridgeItems() {
