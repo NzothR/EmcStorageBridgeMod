@@ -48,9 +48,18 @@ public final class EmcTransactionCore {
             return alreadyKnown || sellValue > 0 ? requested : 0;
         }
 
-        if (!alreadyKnown && !learn(account.get().player(), provider, stack)) {
-            log("insert", owner, stack, requested, true, 0, "ProjectE-learning-was-rejected");
-            return 0;
+        if (!alreadyKnown) {
+            EmcDisplayCache.beginBridgeLearn(owner);
+            boolean learned;
+            try {
+                learned = learn(account.get().player(), provider, stack);
+            } finally {
+                EmcDisplayCache.endBridgeLearn(owner);
+            }
+            if (!learned) {
+                log("insert", owner, stack, requested, true, 0, "ProjectE-learning-was-rejected");
+                return 0;
+            }
         }
 
         BigInteger gain = EmcMath.gain(requested, sellValue);

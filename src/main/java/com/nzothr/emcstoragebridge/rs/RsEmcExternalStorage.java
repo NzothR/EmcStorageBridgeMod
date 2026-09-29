@@ -36,7 +36,6 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
     private INetwork reportedNetwork;
     private long reportedRevision = Long.MIN_VALUE;
     private boolean reportedActive;
-    private boolean transactionUpdatePending;
     private RsEmcEntryRegistry.Entry entry;
 
     RsEmcExternalStorage(IExternalStorageContext context, EmcInterfaceBlockEntity blockEntity) {
@@ -54,13 +53,6 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         if (reportedNetwork != network) {
             reportedNetwork = network;
             reportedStacks = null;
-        }
-        if (transactionUpdatePending) {
-            transactionUpdatePending = false;
-            reportedStacks = active ? snapshot() : Map.of();
-            reportedRevision = revision;
-            reportedActive = active;
-            return;
         }
         if (reportedStacks != null && revision == reportedRevision && active == wasActive) return;
 
@@ -114,7 +106,6 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         int remaining = (int) Math.max(0, size - accepted);
         if (action == Action.PERFORM && accepted > 0) {
             EmcDisplayCache.knownItemAdded(owner(), ItemInfo.fromStack(item));
-            transactionUpdatePending = true;
         }
         return remaining == 0 ? ItemStack.EMPTY : remainder(prototype, remaining);
     }
@@ -133,7 +124,6 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
                 blockEntity.getNbtPolicy(), true);
         if (extracted > 0) {
             EmcDisplayCache.refreshKey(owner(), ItemInfo.fromStack(item));
-            transactionUpdatePending = true;
         }
         return extracted <= 0 ? ItemStack.EMPTY : withCount(prototype, (int) Math.min(extracted, Integer.MAX_VALUE));
     }

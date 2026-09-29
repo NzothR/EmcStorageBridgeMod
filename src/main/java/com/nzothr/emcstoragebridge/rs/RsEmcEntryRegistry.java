@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import com.refinedmods.refinedstorage.api.network.INetwork;
-import com.refinedmods.refinedstorage.api.storage.cache.InvalidateCause;
 import com.mojang.logging.LogUtils;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
 import org.slf4j.Logger;
@@ -63,18 +62,6 @@ final class RsEmcEntryRegistry {
         INetwork network = entry.network.get();
         List<Entry> entries = network == null ? null : ENTRIES.get(network);
         if (entries != null) entries.remove(entry);
-    }
-
-    static synchronized void refreshOwnerNetworks(java.util.UUID owner) {
-        for (Map.Entry<INetwork, List<Entry>> networkEntries : ENTRIES.entrySet()) {
-            if (networkEntries.getValue().stream().anyMatch(entry -> owner.equals(entry.owner) && entry.isPresent())) {
-                if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
-                    LOGGER.info("[EMCStorageBridge] Invalidating RS item cache owner={} network={}", owner,
-                            Integer.toHexString(System.identityHashCode(networkEntries.getKey())));
-                }
-                networkEntries.getKey().getItemStorageCache().invalidate(InvalidateCause.UNKNOWN);
-            }
-        }
     }
 
     static final class Entry {

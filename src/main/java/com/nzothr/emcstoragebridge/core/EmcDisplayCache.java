@@ -26,6 +26,7 @@ public final class EmcDisplayCache {
     private static final Map<UUID, State> STATES = new HashMap<>();
     private static final Set<UUID> PENDING_OWNERS = new HashSet<>();
     private static final Set<UUID> PENDING_KNOWLEDGE_CHANGES = new HashSet<>();
+    private static final Set<UUID> BRIDGE_LEARNS_IN_PROGRESS = new HashSet<>();
     private static final Map<UUID, Long> REVISIONS = new HashMap<>();
     private static final List<Consumer<UUID>> NETWORK_REFRESHERS = new CopyOnWriteArrayList<>();
     private static final AtomicLong NEXT_REVISION = new AtomicLong();
@@ -111,10 +112,24 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {
+        if (owner != null && BRIDGE_LEARNS_IN_PROGRESS.contains(owner)) {
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] Ignoring intermediate Knowledge event from EMC insertion owner={}", owner);
+            }
+            return;
+        }
         if (owner != null && PENDING_KNOWLEDGE_CHANGES.add(owner)
                 && EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
             LOGGER.info("[EMCStorageBridge] Queued Knowledge cache invalidation owner={}", owner);
         }
+    }
+
+    public static synchronized void beginBridgeLearn(UUID owner) {
+        if (owner != null) BRIDGE_LEARNS_IN_PROGRESS.add(owner);
+    }
+
+    public static synchronized void endBridgeLearn(UUID owner) {
+        if (owner != null) BRIDGE_LEARNS_IN_PROGRESS.remove(owner);
     }
 
     public static synchronized void knownItemAdded(UUID owner, ItemInfo info) {
@@ -131,6 +146,7 @@ public final class EmcDisplayCache {
         STATES.clear();
         PENDING_OWNERS.clear();
         PENDING_KNOWLEDGE_CHANGES.clear();
+        BRIDGE_LEARNS_IN_PROGRESS.clear();
         owners.forEach(EmcDisplayCache::markChanged);
     }
 

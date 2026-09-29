@@ -4,7 +4,6 @@ import com.mojang.logging.LogUtils;
 import com.refinedmods.refinedstorage.api.storage.StorageType;
 import com.refinedmods.refinedstorage.apiimpl.API;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
-import com.nzothr.emcstoragebridge.core.EmcDisplayCache;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.slf4j.Logger;
@@ -25,7 +24,6 @@ public final class RsIntegration {
         event.enqueueWork(() -> {
             RsEmcExternalStorageProvider provider = new RsEmcExternalStorageProvider();
             API.instance().addExternalStorageProvider(StorageType.ITEM, provider);
-            EmcDisplayCache.addNetworkRefresher(RsEmcEntryRegistry::refreshOwnerNetworks);
             var providers = API.instance().getExternalStorageProviders(StorageType.ITEM);
             boolean registered = providers.stream().anyMatch(candidate -> (Object) candidate == provider);
             if (registered) {
