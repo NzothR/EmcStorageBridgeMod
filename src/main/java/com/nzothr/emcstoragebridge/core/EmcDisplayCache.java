@@ -16,6 +16,7 @@ import com.mojang.logging.LogUtils;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
 import moze_intel.projecte.api.ItemInfo;
 import moze_intel.projecte.api.capabilities.IKnowledgeProvider;
+import moze_intel.projecte.emc.EMCMappingHandler;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.server.ServerLifecycleHooks;
@@ -27,6 +28,8 @@ public final class EmcDisplayCache {
     private static final Set<UUID> PENDING_OWNERS = new HashSet<>();
     private static final Set<UUID> PENDING_KNOWLEDGE_CHANGES = new HashSet<>();
     private static final Set<UUID> BRIDGE_LEARNS_IN_PROGRESS = new HashSet<>();
+    private static final Set<UUID> FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS = new HashSet<>();
+    private static final Set<UUID> BULK_REFRESH_OWNERS = new HashSet<>();
     private static final Map<UUID, Long> REVISIONS = new HashMap<>();
     private static final List<Consumer<UUID>> NETWORK_REFRESHERS = new CopyOnWriteArrayList<>();
     private static final AtomicLong NEXT_REVISION = new AtomicLong();
@@ -42,8 +45,10 @@ public final class EmcDisplayCache {
         int budget = EmcStorageBridgeConfig.DISPLAY_REFRESH_BUDGET_PER_TICK.get();
         for (UUID owner : List.copyOf(PENDING_KNOWLEDGE_CHANGES)) {
             PENDING_KNOWLEDGE_CHANGES.remove(owner);
+            boolean expandedFullKnowledge = expandFullKnowledge(owner);
             State removed = STATES.remove(owner);
             PENDING_OWNERS.remove(owner);
+            if (expandedFullKnowledge) BULK_REFRESH_OWNERS.add(owner);
             markChanged(owner);
             if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
                 LOGGER.info("[EMCStorageBridge] Applied deferred Knowledge invalidation owner={} cachedItems={} pendingLookup={}",
@@ -60,12 +65,17 @@ public final class EmcDisplayCache {
             }
         }
         for (Map.Entry<UUID, State> mapEntry : STATES.entrySet()) {
+            UUID owner = mapEntry.getKey();
             State state = mapEntry.getValue();
-            if (state.items.isEmpty()) continue;
-            var account = ProjectEAccountService.getReadableAccount(mapEntry.getKey());
+            if (state.items.isEmpty()) {
+                BULK_REFRESH_OWNERS.remove(owner);
+                continue;
+            }
+            var account = ProjectEAccountService.getReadableAccount(owner);
             if (account.isEmpty()) continue;
             BigInteger emc = account.get().getEmc();
-            int work = Math.min(budget, state.items.size());
+            int refreshBudget = BULK_REFRESH_OWNERS.contains(owner) ? Math.max(budget, 512) : budget;
+            int work = Math.min(refreshBudget, state.items.size());
             boolean changed = false;
             for (int i = 0; i < work; i++) {
                 ItemInfo info = state.items.get(state.cursor++ % state.items.size());
@@ -73,12 +83,13 @@ public final class EmcDisplayCache {
             }
             if (!state.firstSweepLogged && state.cursor >= state.items.size()) {
                 state.firstSweepLogged = true;
+                BULK_REFRESH_OWNERS.remove(owner);
                 if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
                     LOGGER.info("[EMCStorageBridge] Initial EMC display sweep complete owner={} knownItems={} visibleKeys={}",
-                            mapEntry.getKey(), state.items.size(), state.snapshot.size());
+                            owner, state.items.size(), state.snapshot.size());
                 }
             }
-            if (changed) markChanged(mapEntry.getKey());
+            if (changed) markChanged(owner);
         }
     }
 
@@ -112,6 +123,9 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {
+        if (owner != null && FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS.contains(owner)) {
+            return;
+        }
         if (owner != null && BRIDGE_LEARNS_IN_PROGRESS.contains(owner)) {
             if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
                 LOGGER.info("[EMCStorageBridge] Ignoring intermediate Knowledge event from EMC insertion owner={}", owner);
@@ -147,7 +161,35 @@ public final class EmcDisplayCache {
         PENDING_OWNERS.clear();
         PENDING_KNOWLEDGE_CHANGES.clear();
         BRIDGE_LEARNS_IN_PROGRESS.clear();
+        FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS.clear();
+        BULK_REFRESH_OWNERS.clear();
         owners.forEach(EmcDisplayCache::markChanged);
+    }
+
+    private static boolean expandFullKnowledge(UUID owner) {
+        var account = ProjectEAccountService.getWritableAccount(owner);
+        if (account.isEmpty() || !account.get().knowledge().hasFullKnowledge()) return false;
+
+        IKnowledgeProvider provider = account.get().knowledge();
+        List<ItemInfo> mappedItems = new ArrayList<>(EMCMappingHandler.getMappedItems());
+        FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS.add(owner);
+        int added = 0;
+        try {
+            // ProjectE's full-knowledge flag prevents ordinary EMC items from being forgotten individually.
+            // Materialize the current EMC mapping as explicit knowledge so the table can still unlearn items.
+            provider.setFullKnowledge(false);
+            for (ItemInfo info : mappedItems) {
+                if (provider.addKnowledge(info)) added++;
+            }
+            provider.sync(account.get().player());
+        } finally {
+            FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS.remove(owner);
+        }
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] Expanded ProjectE full Knowledge owner={} mappedItems={} newlyAdded={} fullKnowledge={}",
+                    owner, mappedItems.size(), added, provider.hasFullKnowledge());
+        }
+        return true;
     }
 
     private static State state(UUID owner) {
