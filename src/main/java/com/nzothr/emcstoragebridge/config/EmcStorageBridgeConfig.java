@@ -20,12 +20,12 @@ public final class EmcStorageBridgeConfig {
             .defineInList("entry.defaultNbtPolicy", "REJECT", List.of("REJECT", "ALLOW"));
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_DEBUG_LOG = BUILDER
-            .comment("Enable detailed EMC bridge debug logging.")
-            .define("debug.enableDebugLog", false);
+            .comment("Log EMC cell registration and Knowledge/display cache lifecycle.")
+            .define("debug.enableDebugLog", true);
 
     public static final ForgeConfigSpec.BooleanValue LOG_TRANSACTIONS = BUILDER
-            .comment("Log individual EMC insert and extract transactions.")
-            .define("debug.logTransactions", false);
+            .comment("Log executed EMC insert and extract attempts, including rejection reasons.")
+            .define("debug.logTransactions", true);
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_RS_INTEGRATION_WORKAROUND = BUILDER
             .comment("Enable targeted compatibility workarounds for RS Integration.")

@@ -3,28 +3,42 @@ package com.nzothr.emcstoragebridge.ae2;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
+import com.mojang.logging.LogUtils;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
 import com.nzothr.emcstoragebridge.core.EmcMath;
 import com.nzothr.emcstoragebridge.core.ProjectEAccountService;
 import com.nzothr.emcstoragebridge.core.ProjectEValueCache;
 import moze_intel.projecte.api.ItemInfo;
 import moze_intel.projecte.api.capabilities.IKnowledgeProvider;
+import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.server.ServerLifecycleHooks;
+import org.slf4j.Logger;
 
 /** Eventually consistent item counts; mutations always go through EmcTransactionCore. */
 public final class EmcDisplayCache {
     private static final Map<UUID, State> STATES = new HashMap<>();
+    private static final Set<UUID> PENDING_OWNERS = new HashSet<>();
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private EmcDisplayCache() {
     }
 
-    public static void tick() {
+    public static synchronized void tick() {
         int budget = EmcStorageBridgeConfig.DISPLAY_REFRESH_BUDGET_PER_TICK.get();
+        for (UUID owner : List.copyOf(PENDING_OWNERS)) {
+            if (state(owner) != null) {
+                PENDING_OWNERS.remove(owner);
+                EmcEntryRegistry.refreshOwnerNetworks(owner);
+            }
+        }
         for (Map.Entry<UUID, State> mapEntry : STATES.entrySet()) {
             State state = mapEntry.getValue();
             if (state.items.isEmpty()) continue;
@@ -37,12 +51,20 @@ public final class EmcDisplayCache {
                 ItemInfo info = state.items.get(state.cursor++ % state.items.size());
                 changed |= update(state, info, emc);
             }
+            if (!state.firstSweepLogged && state.cursor >= state.items.size()) {
+                state.firstSweepLogged = true;
+                if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                    LOGGER.info("[EMCStorageBridge] Initial EMC display sweep complete owner={} knownItems={} visibleKeys={}",
+                            mapEntry.getKey(), state.items.size(), state.snapshot.size());
+                }
+            }
             if (changed) EmcEntryRegistry.refreshOwnerNetworks(mapEntry.getKey());
         }
     }
 
     public static synchronized void addAvailable(UUID owner, KeyCounter out, boolean allowNbt) {
         State state = state(owner);
+        if (state == null) return;
         if (allowNbt) {
             out.addAll(state.snapshot);
             return;
@@ -55,24 +77,28 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized boolean isEmpty(UUID owner) {
-        return state(owner).snapshot.isEmpty();
+        State state = state(owner);
+        return state == null || state.snapshot.isEmpty();
     }
 
     public static synchronized void refreshKey(UUID owner, ItemInfo info) {
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isEmpty()) return;
         State state = state(owner);
+        if (state == null) return;
         boolean changed = update(state, info, account.get().getEmc());
         if (changed) EmcEntryRegistry.refreshOwnerNetworks(owner);
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {
         STATES.remove(owner);
+        PENDING_OWNERS.remove(owner);
         EmcEntryRegistry.refreshOwnerNetworks(owner);
     }
 
     public static synchronized void knownItemAdded(UUID owner, ItemInfo info) {
         State state = state(owner);
+        if (state == null) return;
         if (!state.items.contains(info)) state.items.add(info);
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isPresent() && update(state, info, account.get().getEmc())) {
@@ -83,20 +109,33 @@ public final class EmcDisplayCache {
     public static synchronized void clear() {
         for (UUID owner : STATES.keySet()) EmcEntryRegistry.refreshOwnerNetworks(owner);
         STATES.clear();
+        PENDING_OWNERS.clear();
     }
 
     private static State state(UUID owner) {
-        return STATES.computeIfAbsent(owner, id -> {
-            State result = new State();
-            var account = ProjectEAccountService.getReadableAccount(id);
-            if (account.isPresent()) {
-                IKnowledgeProvider provider = account.get();
-                result.items = new ArrayList<>(provider.getKnowledge());
-                result.items.sort((a, b) -> a.toString().compareTo(b.toString()));
-                // Counts fill gradually by tick budget to avoid a full value lookup during network discovery.
+        State existing = STATES.get(owner);
+        if (existing != null) return existing;
+        var account = ProjectEAccountService.getReadableAccount(owner);
+        if (account.isEmpty()) {
+            if (PENDING_OWNERS.add(owner) && EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+                LOGGER.warn("[EMCStorageBridge] Deferred ProjectE display lookup owner={} serverPresent={} serverThread={}",
+                        owner, server != null, server != null && server.isSameThread());
             }
-            return result;
-        });
+            return null;
+        }
+
+        IKnowledgeProvider provider = account.get();
+        State created = new State();
+        created.items = new ArrayList<>(provider.getKnowledge());
+        created.items.sort((a, b) -> a.toString().compareTo(b.toString()));
+        // Counts fill gradually by tick budget to avoid a full value lookup during network discovery.
+        STATES.put(owner, created);
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] Initialized display snapshot owner={} knownItems={} fullKnowledge={} EMC={}",
+                    owner, created.items.size(), provider.hasFullKnowledge(), provider.getEmc());
+        }
+        return created;
     }
 
     private static boolean update(State state, ItemInfo info, BigInteger balance) {
@@ -114,6 +153,7 @@ public final class EmcDisplayCache {
     private static final class State {
         private List<ItemInfo> items = List.of();
         private int cursor;
+        private boolean firstSweepLogged;
         private final KeyCounter snapshot = new KeyCounter();
     }
 }
