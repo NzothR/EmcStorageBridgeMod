@@ -35,6 +35,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
     private Map<CompoundTag, ItemStack> reportedStacks;
     private INetwork reportedNetwork;
     private long reportedRevision = Long.MIN_VALUE;
+    private long deferCacheSyncThroughTick = Long.MIN_VALUE;
     private boolean reportedActive;
     private RsEmcEntryRegistry.Entry entry;
 
@@ -50,10 +51,14 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         entry = RsEmcEntryRegistry.register(this, network);
         boolean active = owner() != null && RsEmcEntryRegistry.isActive(entry);
         long revision = EmcDisplayCache.revision(owner());
-        if (reportedNetwork != network) {
+        boolean networkChanged = reportedNetwork != network;
+        if (networkChanged) {
             reportedNetwork = network;
             reportedStacks = null;
         }
+        long gameTime = blockEntity.getLevel().getGameTime();
+        if (!networkChanged && gameTime <= deferCacheSyncThroughTick) return;
+        if (gameTime > deferCacheSyncThroughTick) deferCacheSyncThroughTick = Long.MIN_VALUE;
         if (reportedStacks != null && revision == reportedRevision && active == wasActive) return;
 
         int previousCount = reportedStacks == null ? -1 : reportedStacks.size();
@@ -124,6 +129,12 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
                 blockEntity.getNbtPolicy(), true);
         if (extracted > 0) {
             EmcDisplayCache.refreshKey(owner(), ItemInfo.fromStack(item));
+            deferCacheSyncThroughTick = blockEntity.getLevel().getGameTime();
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] Deferred RS external storage cache diff until next tick after extraction owner={} item={} count={} tick={} network={}",
+                        owner(), prototype, extracted, deferCacheSyncThroughTick,
+                        Integer.toHexString(System.identityHashCode(reportedNetwork)));
+            }
         }
         return extracted <= 0 ? ItemStack.EMPTY : withCount(prototype, (int) Math.min(extracted, Integer.MAX_VALUE));
     }
