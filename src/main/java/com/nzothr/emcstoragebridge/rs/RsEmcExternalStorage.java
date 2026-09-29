@@ -15,8 +15,8 @@ import com.refinedmods.refinedstorage.api.storage.externalstorage.IExternalStora
 import com.refinedmods.refinedstorage.api.storage.externalstorage.IExternalStorageContext;
 import com.refinedmods.refinedstorage.api.util.Action;
 import com.refinedmods.refinedstorage.api.util.IComparer;
-import com.nzothr.emcstoragebridge.ae2.EmcDisplayCache;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
+import com.nzothr.emcstoragebridge.core.EmcDisplayCache;
 import com.nzothr.emcstoragebridge.core.EmcTransactionCore;
 import com.nzothr.emcstoragebridge.core.NbtPolicy;
 import moze_intel.projecte.api.ItemInfo;
@@ -64,6 +64,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         }
         if (reportedStacks != null && revision == reportedRevision && active == wasActive) return;
 
+        int previousCount = reportedStacks == null ? -1 : reportedStacks.size();
         Map<CompoundTag, ItemStack> current = active ? snapshot() : Map.of();
         IStorageCache<ItemStack> cache = network.getItemStorageCache();
         if (reportedStacks == null) {
@@ -75,10 +76,9 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         }
         reportedRevision = revision;
         reportedActive = active;
-        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
-            LOGGER.info("[EMCStorageBridge] RS external storage synchronized owner={} active={} items={} revision={} network={}",
-                    owner(), active, current.size(), revision, Integer.toHexString(System.identityHashCode(network)));
-        }
+        LOGGER.info("[EMCStorageBridge] RS external storage synchronized owner={} active={} items={} revision={} previousItems={} access={} network={}",
+                owner(), active, current.size(), revision, previousCount, context.getAccessType(),
+                Integer.toHexString(System.identityHashCode(network)));
     }
 
     @Override
@@ -95,11 +95,18 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         reportedActive = !stacks.isEmpty() || (owner() != null && isActive());
         List<ItemStack> result = new ArrayList<>(stacks.size());
         for (ItemStack stack : stacks.values()) result.add(stack.copy());
+        LOGGER.info("[EMCStorageBridge] RS requested EMC stacks owner={} active={} returned={} revision={} NBT={} access={} pos={}",
+                owner(), isActive(), result.size(), reportedRevision, blockEntity.getNbtPolicy(), context.getAccessType(),
+                blockEntity.getBlockPos());
         return result;
     }
 
     @Override
     public ItemStack insert(ItemStack prototype, int size, Action action) {
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] RS insert request owner={} item={} count={} action={} access={} active={} acceptedByContext={}",
+                    owner(), prototype, size, action, context.getAccessType(), isActive(), context.acceptsItem(prototype));
+        }
         if (prototype.isEmpty() || size <= 0 || !canInsert(prototype)) return remainder(prototype, size);
         ItemStack item = prototype.copy();
         item.setCount(1);

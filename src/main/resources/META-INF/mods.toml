@@ -18,9 +18,9 @@ side="BOTH"
 
 [[dependencies.${mod_id}]]
 modId="ae2"
-mandatory=true
-versionRange="[15.3.4,)"
-ordering="NONE"
+mandatory=false
+versionRange="[12.9,)"
+ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]

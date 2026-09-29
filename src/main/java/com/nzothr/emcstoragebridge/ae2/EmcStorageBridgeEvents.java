@@ -18,12 +18,12 @@ public final class EmcStorageBridgeEvents {
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) EmcDisplayCache.tick();
+        if (event.phase == TickEvent.Phase.END) com.nzothr.emcstoragebridge.core.EmcDisplayCache.tick();
     }
 
     @SubscribeEvent
     public static void onKnowledgeChanged(PlayerKnowledgeChangeEvent event) {
-        EmcDisplayCache.knowledgeChanged(event.getPlayerUUID());
+        com.nzothr.emcstoragebridge.core.EmcDisplayCache.knowledgeChanged(event.getPlayerUUID());
     }
 
     @SubscribeEvent
@@ -37,7 +37,7 @@ public final class EmcStorageBridgeEvents {
             @Override
             protected void apply(Void ignored, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ProjectEValueCache.clear();
-                EmcDisplayCache.clear();
+                com.nzothr.emcstoragebridge.core.EmcDisplayCache.clear();
             }
         });
     }
