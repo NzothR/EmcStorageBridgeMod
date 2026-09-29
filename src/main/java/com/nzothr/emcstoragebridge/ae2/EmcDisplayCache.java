@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 public final class EmcDisplayCache {
     private static final Map<UUID, State> STATES = new HashMap<>();
     private static final Set<UUID> PENDING_OWNERS = new HashSet<>();
+    private static final Set<UUID> PENDING_KNOWLEDGE_CHANGES = new HashSet<>();
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private EmcDisplayCache() {
@@ -33,6 +34,16 @@ public final class EmcDisplayCache {
 
     public static synchronized void tick() {
         int budget = EmcStorageBridgeConfig.DISPLAY_REFRESH_BUDGET_PER_TICK.get();
+        for (UUID owner : List.copyOf(PENDING_KNOWLEDGE_CHANGES)) {
+            PENDING_KNOWLEDGE_CHANGES.remove(owner);
+            State removed = STATES.remove(owner);
+            PENDING_OWNERS.remove(owner);
+            EmcEntryRegistry.refreshOwnerNetworks(owner);
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] Applied deferred Knowledge invalidation owner={} cachedItems={} pendingLookup={}",
+                        owner, removed == null ? 0 : removed.items.size(), removed == null);
+            }
+        }
         for (UUID owner : List.copyOf(PENDING_OWNERS)) {
             if (state(owner) != null) {
                 PENDING_OWNERS.remove(owner);
@@ -91,9 +102,10 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {
-        STATES.remove(owner);
-        PENDING_OWNERS.remove(owner);
-        EmcEntryRegistry.refreshOwnerNetworks(owner);
+        if (owner != null && PENDING_KNOWLEDGE_CHANGES.add(owner)
+                && EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] Queued Knowledge cache invalidation owner={}", owner);
+        }
     }
 
     public static synchronized void knownItemAdded(UUID owner, ItemInfo info) {
@@ -110,6 +122,7 @@ public final class EmcDisplayCache {
         for (UUID owner : STATES.keySet()) EmcEntryRegistry.refreshOwnerNetworks(owner);
         STATES.clear();
         PENDING_OWNERS.clear();
+        PENDING_KNOWLEDGE_CHANGES.clear();
     }
 
     private static State state(UUID owner) {
