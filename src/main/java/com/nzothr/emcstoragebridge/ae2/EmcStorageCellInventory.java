@@ -42,7 +42,8 @@ public final class EmcStorageCellInventory implements StorageCell {
     @Override
     public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
         if (!isActive() || owner == null || !(key instanceof AEItemKey itemKey)) {
-            EmcTransactionCore.logRejected("insert", owner, key, amount, mode == Actionable.MODULATE, "inactive-or-not-item-key");
+            EmcTransactionCore.logRejected("insert", owner, rejectedStack(key), amount,
+                    mode == Actionable.MODULATE, "inactive-or-not-item-key");
             return 0;
         }
         ItemStack input = itemKey.toStack();
@@ -56,7 +57,8 @@ public final class EmcStorageCellInventory implements StorageCell {
     @Override
     public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
         if (!isActive() || owner == null || !(key instanceof AEItemKey itemKey)) {
-            EmcTransactionCore.logRejected("extract", owner, key, amount, mode == Actionable.MODULATE, "inactive-or-not-item-key");
+            EmcTransactionCore.logRejected("extract", owner, rejectedStack(key), amount,
+                    mode == Actionable.MODULATE, "inactive-or-not-item-key");
             return 0;
         }
         ItemStack output = itemKey.toStack();
@@ -110,5 +112,9 @@ public final class EmcStorageCellInventory implements StorageCell {
 
     private NbtPolicy policy() {
         return EmcStorageCellItem.getNbtPolicy(stack);
+    }
+
+    private static ItemStack rejectedStack(AEKey key) {
+        return key instanceof AEItemKey itemKey ? itemKey.toStack() : ItemStack.EMPTY;
     }
 }

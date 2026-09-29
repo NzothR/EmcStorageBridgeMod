@@ -3,7 +3,6 @@ package com.nzothr.emcstoragebridge.core;
 import java.math.BigInteger;
 import java.util.UUID;
 
-import appeng.api.stacks.AEKey;
 import com.mojang.logging.LogUtils;
 import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
 import moze_intel.projecte.api.ItemInfo;
@@ -129,8 +128,9 @@ public final class EmcTransactionCore {
         return amount;
     }
 
-    public static void logRejected(String operation, UUID owner, AEKey key, long requested, boolean execute, String reason) {
-        if (execute) log(operation, owner, key == null ? ItemStack.EMPTY : key.wrapForDisplayOrFilter(), requested, true, 0, reason);
+    public static void logRejected(String operation, UUID owner, ItemStack stack, long requested, boolean execute,
+            String reason) {
+        if (execute) log(operation, owner, stack == null ? ItemStack.EMPTY : stack, requested, true, 0, reason);
     }
 
     private static void log(String operation, UUID owner, ItemStack stack, long requested, boolean execute,

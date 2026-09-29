@@ -1341,7 +1341,8 @@ MVP 只保留必要配置：
 
 ```toml
 [display]
-refreshBudgetPerTick = 32
+refreshRoundTicks = 200
+refreshIntervalTicks = 0
 maxDisplayAmount = 2147483647
 
 [entry]
@@ -1350,10 +1351,9 @@ defaultNbtPolicy = "REJECT"
 [debug]
 enableDebugLog = false
 logTransactions = false
-
-[compatibility]
-enableRsIntegrationWorkaround = true
 ```
+
+`refreshRoundTicks` 是完成一轮 Knowledge 显示刷新所用的目标 tick 数；`refreshIntervalTicks` 是一轮内两次刷新之间等待的 tick 数，默认为 `0`，即每 tick 刷新。每次处理数量按已学习物品数和一轮可执行的刷新次数动态计算。
 
 `maxDisplayAmount` 可配置，但默认固定为 2.1G。
 

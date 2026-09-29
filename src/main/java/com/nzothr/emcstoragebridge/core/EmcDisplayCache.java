@@ -29,11 +29,11 @@ public final class EmcDisplayCache {
     private static final Set<UUID> PENDING_KNOWLEDGE_CHANGES = new HashSet<>();
     private static final Set<UUID> BRIDGE_LEARNS_IN_PROGRESS = new HashSet<>();
     private static final Set<UUID> FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS = new HashSet<>();
-    private static final Set<UUID> BULK_REFRESH_OWNERS = new HashSet<>();
     private static final Map<UUID, Long> REVISIONS = new HashMap<>();
     private static final List<Consumer<UUID>> NETWORK_REFRESHERS = new CopyOnWriteArrayList<>();
     private static final AtomicLong NEXT_REVISION = new AtomicLong();
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static long tickCounter;
 
     private EmcDisplayCache() {}
 
@@ -42,13 +42,12 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void tick() {
-        int budget = EmcStorageBridgeConfig.DISPLAY_REFRESH_BUDGET_PER_TICK.get();
+        long currentTick = ++tickCounter;
         for (UUID owner : List.copyOf(PENDING_KNOWLEDGE_CHANGES)) {
             PENDING_KNOWLEDGE_CHANGES.remove(owner);
-            boolean expandedFullKnowledge = expandFullKnowledge(owner);
+            expandFullKnowledge(owner);
             State removed = STATES.remove(owner);
             PENDING_OWNERS.remove(owner);
-            if (expandedFullKnowledge) BULK_REFRESH_OWNERS.add(owner);
             markChanged(owner);
             if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
                 LOGGER.info("[EMCStorageBridge] Applied deferred Knowledge invalidation owner={} cachedItems={} pendingLookup={}",
@@ -67,15 +66,17 @@ public final class EmcDisplayCache {
         for (Map.Entry<UUID, State> mapEntry : STATES.entrySet()) {
             UUID owner = mapEntry.getKey();
             State state = mapEntry.getValue();
-            if (state.items.isEmpty()) {
-                BULK_REFRESH_OWNERS.remove(owner);
-                continue;
-            }
+            if (state.items.isEmpty()) continue;
+            long refreshInterval = (long) EmcStorageBridgeConfig.DISPLAY_REFRESH_INTERVAL_TICKS.get() + 1;
+            if (state.lastRefreshTick != Long.MIN_VALUE && currentTick - state.lastRefreshTick < refreshInterval) continue;
+            state.lastRefreshTick = currentTick;
             var account = ProjectEAccountService.getReadableAccount(owner);
             if (account.isEmpty()) continue;
             BigInteger emc = account.get().getEmc();
-            int refreshBudget = BULK_REFRESH_OWNERS.contains(owner) ? Math.max(budget, 512) : budget;
-            int work = Math.min(refreshBudget, state.items.size());
+            long roundTicks = EmcStorageBridgeConfig.DISPLAY_REFRESH_ROUND_TICKS.get();
+            long refreshesPerRound = Math.max(1, (roundTicks + refreshInterval - 1) / refreshInterval);
+            int work = (int) Math.max(1, Math.min(state.items.size(),
+                    (state.items.size() + refreshesPerRound - 1) / refreshesPerRound));
             boolean changed = false;
             for (int i = 0; i < work; i++) {
                 ItemInfo info = state.items.get(state.cursor++ % state.items.size());
@@ -83,10 +84,10 @@ public final class EmcDisplayCache {
             }
             if (!state.firstSweepLogged && state.cursor >= state.items.size()) {
                 state.firstSweepLogged = true;
-                BULK_REFRESH_OWNERS.remove(owner);
                 if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
-                    LOGGER.info("[EMCStorageBridge] Initial EMC display sweep complete owner={} knownItems={} visibleKeys={}",
-                            owner, state.items.size(), state.snapshot.size());
+                    LOGGER.info("[EMCStorageBridge] Initial EMC display sweep complete owner={} knownItems={} visibleKeys={} roundTicks={} intervalTicks={} itemsPerRefresh={}",
+                            owner, state.items.size(), state.snapshot.size(), roundTicks,
+                            EmcStorageBridgeConfig.DISPLAY_REFRESH_INTERVAL_TICKS.get(), work);
                 }
             }
             if (changed) markChanged(owner);
@@ -162,13 +163,13 @@ public final class EmcDisplayCache {
         PENDING_KNOWLEDGE_CHANGES.clear();
         BRIDGE_LEARNS_IN_PROGRESS.clear();
         FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS.clear();
-        BULK_REFRESH_OWNERS.clear();
+        tickCounter = 0;
         owners.forEach(EmcDisplayCache::markChanged);
     }
 
-    private static boolean expandFullKnowledge(UUID owner) {
+    private static void expandFullKnowledge(UUID owner) {
         var account = ProjectEAccountService.getWritableAccount(owner);
-        if (account.isEmpty() || !account.get().knowledge().hasFullKnowledge()) return false;
+        if (account.isEmpty() || !account.get().knowledge().hasFullKnowledge()) return;
 
         IKnowledgeProvider provider = account.get().knowledge();
         List<ItemInfo> mappedItems = new ArrayList<>(EMCMappingHandler.getMappedItems());
@@ -189,7 +190,6 @@ public final class EmcDisplayCache {
             LOGGER.info("[EMCStorageBridge] Expanded ProjectE full Knowledge owner={} mappedItems={} newlyAdded={} fullKnowledge={}",
                     owner, mappedItems.size(), added, provider.hasFullKnowledge());
         }
-        return true;
     }
 
     private static State state(UUID owner) {
@@ -242,6 +242,7 @@ public final class EmcDisplayCache {
     private static final class State {
         private List<ItemInfo> items = List.of();
         private int cursor;
+        private long lastRefreshTick = Long.MIN_VALUE;
         private boolean firstSweepLogged;
         private final Map<ItemInfo, Long> snapshot = new HashMap<>();
     }

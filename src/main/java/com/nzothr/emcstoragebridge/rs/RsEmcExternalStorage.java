@@ -23,7 +23,6 @@ import com.nzothr.emcstoragebridge.core.NbtPolicy;
 import moze_intel.projecte.api.ItemInfo;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -74,9 +73,11 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         }
         reportedRevision = revision;
         reportedActive = active;
-        LOGGER.info("[EMCStorageBridge] RS external storage synchronized owner={} active={} items={} revision={} previousItems={} access={} network={}",
-                owner(), active, current.size(), revision, previousCount, context.getAccessType(),
-                Integer.toHexString(System.identityHashCode(network)));
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] RS external storage synchronized owner={} active={} items={} revision={} previousItems={} access={} network={}",
+                    owner(), active, current.size(), revision, previousCount, context.getAccessType(),
+                    Integer.toHexString(System.identityHashCode(network)));
+        }
     }
 
     @Override
@@ -93,9 +94,11 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         reportedActive = !stacks.isEmpty() || (owner() != null && isActive());
         List<ItemStack> result = new ArrayList<>(stacks.size());
         for (ItemStack stack : stacks.values()) result.add(stack.copy());
-        LOGGER.info("[EMCStorageBridge] RS requested EMC stacks owner={} active={} returned={} revision={} NBT={} access={} pos={}",
-                owner(), isActive(), result.size(), reportedRevision, blockEntity.getNbtPolicy(), context.getAccessType(),
-                blockEntity.getBlockPos());
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] RS requested EMC stacks owner={} active={} returned={} revision={} NBT={} access={} pos={}",
+                    owner(), isActive(), result.size(), reportedRevision, blockEntity.getNbtPolicy(), context.getAccessType(),
+                    blockEntity.getBlockPos());
+        }
         return result;
     }
 
