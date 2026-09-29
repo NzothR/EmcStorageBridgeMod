@@ -18,8 +18,8 @@ public final class EmcDisplayCache {
     public static void knownItemAdded(UUID owner, ItemInfo info) { com.nzothr.emcstoragebridge.core.EmcDisplayCache.knownItemAdded(owner, info); }
     public static void clear() { com.nzothr.emcstoragebridge.core.EmcDisplayCache.clear(); }
 
-    public static void addAvailable(UUID owner, KeyCounter out, boolean allowNbt) {
-        for (var stack : com.nzothr.emcstoragebridge.core.EmcDisplayCache.getAvailableStacks(owner, allowNbt)) {
+    public static void addAvailable(UUID owner, KeyCounter out) {
+        for (var stack : com.nzothr.emcstoragebridge.core.EmcDisplayCache.getAvailableStacks(owner)) {
             out.add(AEItemKey.of(stack), stack.getCount());
         }
     }

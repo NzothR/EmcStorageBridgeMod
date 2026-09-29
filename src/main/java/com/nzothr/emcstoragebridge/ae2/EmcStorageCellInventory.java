@@ -49,7 +49,7 @@ public final class EmcStorageCellInventory implements StorageCell {
         ItemStack input = itemKey.toStack();
         long accepted = EmcTransactionCore.insert(owner, input, amount, policy(), mode == Actionable.MODULATE);
         if (mode == Actionable.MODULATE && accepted > 0) {
-            EmcDisplayCache.knownItemAdded(owner, ItemInfo.fromStack(input));
+            EmcDisplayCache.knownItemAdded(owner, ItemInfo.fromStack(EmcTransactionCore.withoutNbt(input)));
         }
         return accepted;
     }
@@ -62,7 +62,7 @@ public final class EmcStorageCellInventory implements StorageCell {
             return 0;
         }
         ItemStack output = itemKey.toStack();
-        long extracted = EmcTransactionCore.extract(owner, output, amount, policy(), mode == Actionable.MODULATE);
+        long extracted = EmcTransactionCore.extract(owner, output, amount, mode == Actionable.MODULATE);
         if (mode == Actionable.MODULATE && extracted > 0) {
             EmcDisplayCache.refreshKey(owner, ItemInfo.fromStack(output));
         }
@@ -77,7 +77,7 @@ public final class EmcStorageCellInventory implements StorageCell {
             availabilityQueryLogged = true;
         }
         if (!active || owner == null) return;
-        EmcDisplayCache.addAvailable(owner, out, policy() == NbtPolicy.ALLOW);
+        EmcDisplayCache.addAvailable(owner, out);
     }
 
     @Override

@@ -29,6 +29,10 @@ public final class EmcTransactionCore {
             return 0;
         }
 
+        // ProjectE values the actual input stack (some NBT-bearing items have a distinct sell value),
+        // while the bridge only learns and exposes the plain item variant.
+        ItemStack learnedStack = withoutNbt(stack);
+
         var account = ProjectEAccountService.getWritableAccount(owner);
         if (account.isEmpty()) {
             log("insert", owner, stack, requested, execute, 0, "account-not-online-or-not-server-thread");
@@ -42,7 +46,7 @@ public final class EmcTransactionCore {
         }
 
         var provider = account.get().knowledge();
-        boolean alreadyKnown = provider.hasKnowledge(stack);
+        boolean alreadyKnown = provider.hasKnowledge(learnedStack);
         if (!execute) {
             return alreadyKnown || sellValue > 0 ? requested : 0;
         }
@@ -51,7 +55,7 @@ public final class EmcTransactionCore {
             EmcDisplayCache.beginBridgeLearn(owner);
             boolean learned;
             try {
-                learned = learn(account.get().player(), provider, stack);
+                learned = learn(account.get().player(), provider, learnedStack);
             } finally {
                 EmcDisplayCache.endBridgeLearn(owner);
             }
@@ -68,13 +72,13 @@ public final class EmcTransactionCore {
         return requested;
     }
 
-    public static long extract(UUID owner, ItemStack stack, long requested, NbtPolicy nbtPolicy, boolean execute) {
+    public static long extract(UUID owner, ItemStack stack, long requested, boolean execute) {
         if (stack.isEmpty() || requested <= 0) {
             log("extract", owner, stack, requested, execute, 0, "empty-stack-or-non-positive-request");
             return 0;
         }
-        if (nbtPolicy == NbtPolicy.REJECT && stack.hasTag()) {
-            log("extract", owner, stack, requested, execute, 0, "NBT-rejected-by-cell-policy");
+        if (stack.hasTag()) {
+            log("extract", owner, stack, requested, execute, 0, "NBT-variants-are-not-exposed");
             return 0;
         }
 
@@ -131,6 +135,13 @@ public final class EmcTransactionCore {
     public static void logRejected(String operation, UUID owner, ItemStack stack, long requested, boolean execute,
             String reason) {
         if (execute) log(operation, owner, stack == null ? ItemStack.EMPTY : stack, requested, true, 0, reason);
+    }
+
+    public static ItemStack withoutNbt(ItemStack stack) {
+        if (stack.isEmpty() || !stack.hasTag()) return stack.copy();
+        ItemStack plain = stack.copy();
+        plain.setTag(null);
+        return plain;
     }
 
     private static void log(String operation, UUID owner, ItemStack stack, long requested, boolean execute,

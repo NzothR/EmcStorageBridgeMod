@@ -114,7 +114,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         long accepted = EmcTransactionCore.insert(owner(), item, size, blockEntity.getNbtPolicy(), action == Action.PERFORM);
         int remaining = (int) Math.max(0, size - accepted);
         if (action == Action.PERFORM && accepted > 0) {
-            EmcDisplayCache.knownItemAdded(owner(), ItemInfo.fromStack(item));
+            EmcDisplayCache.knownItemAdded(owner(), ItemInfo.fromStack(EmcTransactionCore.withoutNbt(item)));
         }
         return remaining == 0 ? ItemStack.EMPTY : remainder(prototype, remaining);
     }
@@ -133,7 +133,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         }
         ItemStack item = prototype.copy();
         item.setCount(1);
-        long simulated = EmcTransactionCore.extract(owner(), item, size, blockEntity.getNbtPolicy(), false);
+        long simulated = EmcTransactionCore.extract(owner(), item, size, false);
         boolean strictQuantity = (flags & IComparer.COMPARE_QUANTITY) == IComparer.COMPARE_QUANTITY;
         if (simulated <= 0 || (strictQuantity && simulated < size)) {
             if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
@@ -151,8 +151,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
             return result;
         }
 
-        long extracted = EmcTransactionCore.extract(owner(), item, Math.min(simulated, size),
-                blockEntity.getNbtPolicy(), true);
+        long extracted = EmcTransactionCore.extract(owner(), item, Math.min(simulated, size), true);
         if (extracted > 0) {
             EmcDisplayCache.refreshKey(owner(), ItemInfo.fromStack(item));
             deferCacheSyncThroughTick = blockEntity.getLevel().getGameTime();
@@ -232,8 +231,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
 
     private Map<CompoundTag, ItemStack> snapshot() {
         Map<CompoundTag, ItemStack> stacks = new HashMap<>();
-        boolean allowNbt = blockEntity.getNbtPolicy() == NbtPolicy.ALLOW;
-        for (ItemStack stack : EmcDisplayCache.getAvailableStacks(owner(), allowNbt)) {
+        for (ItemStack stack : EmcDisplayCache.getAvailableStacks(owner())) {
             if (stack.isEmpty() || !context.acceptsItem(stack)) continue;
             ItemStack copy = stack.copy();
             stacks.put(key(copy), copy);

@@ -874,7 +874,7 @@ RS Adapter  ─┘
 | 模式 | 行为 |
 | --- | --- |
 | Reject NBT | 携带 NBT 的物品不进入 EMC Space |
-| Allow NBT | 允许进入，但最终仍交给 ProjectE 原生规则 |
+| Allow NBT | 允许 NBT 栈进入；按原栈卖出 EMC，学习和库存键使用无 NBT 的物品 |
 
 ### 14.2 Reject NBT
 
@@ -892,18 +892,16 @@ return cannot accept
 
 ### 14.3 Allow NBT
 
-Allow NBT 不代表本 Mod 会保存 NBT。
+Allow NBT 不代表本 Mod 会保存或输出 NBT。
 
 规则：
 
-- 不保存 NBT；
-- 不恢复 NBT；
-- 不自行规范化；
-- 不自行判断危险 NBT；
-- 不自行把不同 NBT 物品拆成不同虚拟库存；
-- 完全交给 ProjectE 原生逻辑。
+- 用带 NBT 的原始栈调用 ProjectE，保留 ProjectE 对该输入栈的卖出 EMC 估值；
+- 将输入栈清除 NBT 后查询或授予 Knowledge；
+- 显示库存只使用无 NBT 的 ItemInfo，NBT 查询不能从虚拟空间提取；
+- NBT 政策开关只决定入口是否接受带 NBT 的输入。
 
-如果 ProjectE 拒绝该 NBT 物品，则本 Mod 也拒绝。
+若无 NBT 的基础物品无法学习，则插入失败，输入物品由 AE2 / RS 保留。
 
 ## 15. AE2 集成设计
 
