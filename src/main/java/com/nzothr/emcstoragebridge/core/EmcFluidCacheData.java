@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 public final class EmcFluidCacheData extends SavedData {
     private static final String DATA_NAME = "emcstoragebridge_fluid_cache";
     private static final String OWNERS = "Owners";
-    private static final int DATA_VERSION = 1;
+    private static final int DATA_VERSION = 2;
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private final Map<UUID, Map<FluidKey, Long>> amounts = new HashMap<>();
@@ -58,7 +58,7 @@ public final class EmcFluidCacheData extends SavedData {
                 if (amount <= 0 || key.resolveFluid() == null) return;
                 CompoundTag fluidTag = new CompoundTag();
                 fluidTag.putString("Fluid", key.fluidId().toString());
-                fluidTag.put("Tag", key.tag());
+                if (key.tag() != null) fluidTag.put("Tag", key.tag());
                 fluidTag.putLong("Amount", amount);
                 fluidList.add(fluidTag);
             });
@@ -93,7 +93,12 @@ public final class EmcFluidCacheData extends SavedData {
                             fluidId, owner);
                     continue;
                 }
-                FluidKey key = new FluidKey(fluidId, fluidTag.getCompound("Tag"));
+                CompoundTag stackTag = fluidTag.contains("Tag", Tag.TAG_COMPOUND)
+                        ? fluidTag.getCompound("Tag") : null;
+                // Version 1 normalized an absent FluidStack tag to an empty compound. Restore AE2's
+                // untagged key semantics when reading caches written by that release.
+                if (version < 2 && stackTag != null && stackTag.isEmpty()) stackTag = null;
+                FluidKey key = new FluidKey(fluidId, stackTag);
                 data.amounts.computeIfAbsent(owner, ignored -> new HashMap<>()).put(key, amount);
             }
         }

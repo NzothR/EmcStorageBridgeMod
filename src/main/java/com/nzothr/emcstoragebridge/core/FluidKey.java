@@ -14,7 +14,7 @@ public final class FluidKey {
 
     public FluidKey(ResourceLocation fluidId, CompoundTag tag) {
         this.fluidId = Objects.requireNonNull(fluidId);
-        this.tag = tag == null ? new CompoundTag() : tag.copy();
+        this.tag = tag == null ? null : tag.copy();
     }
 
     public static FluidKey of(FluidStack stack) {
@@ -26,17 +26,17 @@ public final class FluidKey {
     }
 
     public CompoundTag tag() {
-        return tag.copy();
+        return tag == null ? null : tag.copy();
     }
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof FluidKey key && fluidId.equals(key.fluidId) && tag.equals(key.tag);
+        return other instanceof FluidKey key && fluidId.equals(key.fluidId) && Objects.equals(tag, key.tag);
     }
 
     @Override
     public int hashCode() {
-        return 31 * fluidId.hashCode() + tag.hashCode();
+        return 31 * fluidId.hashCode() + Objects.hashCode(tag);
     }
 
     public Fluid resolveFluid() {
