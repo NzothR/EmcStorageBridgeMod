@@ -23,7 +23,9 @@ public final class RsIntegration {
     public static void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             RsEmcExternalStorageProvider provider = new RsEmcExternalStorageProvider();
+            RsEmcFluidExternalStorageProvider fluidProvider = new RsEmcFluidExternalStorageProvider();
             API.instance().addExternalStorageProvider(StorageType.ITEM, provider);
+            API.instance().addExternalStorageProvider(StorageType.FLUID, fluidProvider);
             var providers = API.instance().getExternalStorageProviders(StorageType.ITEM);
             boolean registered = providers.stream().anyMatch(candidate -> (Object) candidate == provider);
             if (registered) {
@@ -34,6 +36,16 @@ public final class RsIntegration {
             } else {
                 LOGGER.error("[EMCStorageBridge] Refined Storage discarded the EMC Interface provider; registered providers={}",
                         providers.stream().map(candidate -> candidate.getClass().getName() + ":" + candidate.getPriority()).toList());
+            }
+            var fluidProviders = API.instance().getExternalStorageProviders(StorageType.FLUID);
+            boolean fluidRegistered = fluidProviders.stream().anyMatch(candidate -> (Object) candidate == fluidProvider);
+            if (fluidRegistered) {
+                LOGGER.info("[EMCStorageBridge] Registered Refined Storage EMC fluid provider priority={} providers={}",
+                        fluidProvider.getPriority(), fluidProviders.stream()
+                                .map(candidate -> candidate.getClass().getSimpleName() + ":" + candidate.getPriority()).toList());
+            } else {
+                LOGGER.error("[EMCStorageBridge] Refined Storage discarded the EMC fluid provider; registered providers={}",
+                        fluidProviders.stream().map(candidate -> candidate.getClass().getName() + ":" + candidate.getPriority()).toList());
             }
         });
     }
