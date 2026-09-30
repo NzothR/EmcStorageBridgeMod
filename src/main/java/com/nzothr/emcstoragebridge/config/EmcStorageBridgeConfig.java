@@ -16,8 +16,12 @@ public final class EmcStorageBridgeConfig {
             .defineInRange("display.refreshIntervalTicks", 0, 0, 72000);
 
     public static final ForgeConfigSpec.IntValue MAX_DISPLAY_AMOUNT = BUILDER
-            .comment("Maximum amount shown for one item in network storage views.")
+            .comment("Maximum amount shown for one key in network storage views (items or mB of fluid).")
             .defineInRange("display.maxDisplayAmount", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
+
+    public static final ForgeConfigSpec.BooleanValue FLUID_ENABLED = BUILDER
+            .comment("Expose ProjectE-valued fluids represented by learned filled buckets to AE2 and RS.")
+            .define("fluid.enabled", true);
 
     public static final ForgeConfigSpec.ConfigValue<String> DEFAULT_NBT_POLICY = BUILDER
             .comment("Default policy for items with NBT data: REJECT or ALLOW.")

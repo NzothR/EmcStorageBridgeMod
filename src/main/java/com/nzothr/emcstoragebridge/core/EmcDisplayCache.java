@@ -124,6 +124,7 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {
+        EmcFluidStorageCore.knowledgeChanged(owner);
         if (owner != null && FULL_KNOWLEDGE_NORMALIZATION_IN_PROGRESS.contains(owner)) {
             return;
         }
@@ -148,6 +149,7 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void knownItemAdded(UUID owner, ItemInfo info) {
+        EmcFluidStorageCore.knowledgeChanged(owner);
         State state = state(owner);
         if (state == null) return;
         if (!state.items.contains(info)) state.items.add(info);
@@ -156,6 +158,7 @@ public final class EmcDisplayCache {
     }
 
     public static synchronized void clear() {
+        EmcFluidStorageCore.knowledgeChanged(null);
         Set<UUID> owners = new HashSet<>(STATES.keySet());
         owners.addAll(PENDING_OWNERS);
         STATES.clear();
@@ -237,6 +240,11 @@ public final class EmcDisplayCache {
                 LOGGER.error("[EMCStorageBridge] Failed to refresh integration network owner={}", owner, e);
             }
         }
+    }
+
+    /** Announces an EMC or fluid-cache change to both storage integrations. */
+    public static synchronized void stateChanged(UUID owner) {
+        if (owner != null) markChanged(owner);
     }
 
     private static final class State {

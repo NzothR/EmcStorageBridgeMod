@@ -7,6 +7,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraft.util.profiling.ProfilerFiller;
@@ -24,6 +25,12 @@ public final class EmcStorageBridgeEvents {
     @SubscribeEvent
     public static void onKnowledgeChanged(PlayerKnowledgeChangeEvent event) {
         com.nzothr.emcstoragebridge.core.EmcDisplayCache.knowledgeChanged(event.getPlayerUUID());
+    }
+
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        com.nzothr.emcstoragebridge.core.EmcFluidStorageCore.clear();
+        com.nzothr.emcstoragebridge.core.EmcDisplayCache.clear();
     }
 
     @SubscribeEvent

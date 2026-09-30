@@ -6,17 +6,20 @@ import com.mojang.logging.LogUtils;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import com.nzothr.emcstoragebridge.core.EmcTransactionCore;
+import com.nzothr.emcstoragebridge.core.EmcFluidStorageCore;
 import com.nzothr.emcstoragebridge.core.NbtPolicy;
 import com.nzothr.emcstoragebridge.core.ProjectEValueCache;
 import com.nzothr.emcstoragebridge.item.EmcStorageCellItem;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 import moze_intel.projecte.api.ItemInfo;
 import org.slf4j.Logger;
 
@@ -41,6 +44,14 @@ public final class EmcStorageCellInventory implements StorageCell {
 
     @Override
     public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
+        if (key instanceof AEFluidKey fluidKey) {
+            if (mode == Actionable.MODULATE
+                    && com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig.LOG_TRANSACTIONS.get()) {
+                LOGGER.info("[EMCStorageBridge] AE2 fluid insert rejected owner={} fluid={} amount={} reason=fluid-input-unsupported",
+                        owner, fluidKey.getId(), amount);
+            }
+            return 0;
+        }
         if (!isActive() || owner == null || !(key instanceof AEItemKey itemKey)) {
             EmcTransactionCore.logRejected("insert", owner, rejectedStack(key), amount,
                     mode == Actionable.MODULATE, "inactive-or-not-item-key");
@@ -57,6 +68,12 @@ public final class EmcStorageCellInventory implements StorageCell {
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
+        if (key instanceof AEFluidKey fluidKey) {
+            if (!isActive() || owner == null) return 0;
+            FluidStack fluid = new FluidStack(fluidKey.getFluid(), 1, fluidKey.copyTag());
+            long extracted = EmcFluidStorageCore.extract(owner, fluid, amount, mode == Actionable.MODULATE);
+            return extracted;
+        }
         if (!isActive() || owner == null || !(key instanceof AEItemKey itemKey)) {
             EmcTransactionCore.logRejected("extract", owner, rejectedStack(key), amount,
                     mode == Actionable.MODULATE, "inactive-or-not-item-key");
@@ -79,6 +96,9 @@ public final class EmcStorageCellInventory implements StorageCell {
         }
         if (!active || owner == null) return;
         EmcDisplayCache.addAvailable(owner, out);
+        for (FluidStack fluid : EmcFluidStorageCore.getAvailableFluids(owner)) {
+            out.add(AEFluidKey.of(fluid), fluid.getAmount());
+        }
     }
 
     @Override
@@ -89,7 +109,8 @@ public final class EmcStorageCellInventory implements StorageCell {
     @Override
     public CellState getStatus() {
         if (owner == null || !isActive()) return CellState.EMPTY;
-        return EmcDisplayCache.isEmpty(owner) ? CellState.EMPTY : CellState.NOT_EMPTY;
+        return EmcDisplayCache.isEmpty(owner) && EmcFluidStorageCore.isEmpty(owner)
+                ? CellState.EMPTY : CellState.NOT_EMPTY;
     }
 
     @Override
