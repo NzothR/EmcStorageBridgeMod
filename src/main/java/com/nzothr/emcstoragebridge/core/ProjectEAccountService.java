@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import moze_intel.projecte.api.capabilities.IKnowledgeProvider;
+import moze_intel.projecte.api.capabilities.PECapabilities;
 import moze_intel.projecte.api.proxy.ITransmutationProxy;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +20,14 @@ public final class ProjectEAccountService {
             return Optional.empty();
         }
 
+        ServerPlayer player = server.getPlayerList().getPlayer(owner);
+        if (player != null) {
+            // ProjectE's UUID proxy assumes an online player's capability is present and throws
+            // when queried while the player entity is being removed after death.
+            if (!player.isAlive() || player.isRemoved()) return Optional.empty();
+            return player.getCapability(PECapabilities.KNOWLEDGE_CAPABILITY).resolve();
+        }
+
         return Optional.of(ITransmutationProxy.INSTANCE.getKnowledgeProviderFor(owner));
     }
 
@@ -29,12 +38,13 @@ public final class ProjectEAccountService {
         }
 
         ServerPlayer player = server.getPlayerList().getPlayer(owner);
-        if (player == null) {
+        if (player == null || !player.isAlive() || player.isRemoved()) {
             return Optional.empty();
         }
 
-        IKnowledgeProvider knowledge = ITransmutationProxy.INSTANCE.getKnowledgeProviderFor(owner);
-        return Optional.of(new OnlineAccount(player, knowledge));
+        return player.getCapability(PECapabilities.KNOWLEDGE_CAPABILITY)
+                .resolve()
+                .map(knowledge -> new OnlineAccount(player, knowledge));
     }
 
     public record OnlineAccount(ServerPlayer player, IKnowledgeProvider knowledge) {
