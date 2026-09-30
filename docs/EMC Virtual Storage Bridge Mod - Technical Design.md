@@ -19,6 +19,8 @@
 
 > ProjectE Account 是真实空间，AE2 Cell / RS Interface 只是访问入口；物流顺序交给 AE2 / RS，EMC 与 Knowledge 规则交给 ProjectE。
 
+1.1.0 流体兼容的边界、EMC 定价、整桶缓存和验收方案单独记录在[流体兼容技术方案](1.1-流体兼容技术方案.md)；目前仍处于方案讨论阶段。
+
 ## 2. 背景与问题定义
 
 ### 2.1 当前常见方案
