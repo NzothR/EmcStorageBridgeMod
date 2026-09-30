@@ -65,5 +65,3 @@ logTransactions = false
 ```powershell
 .\gradlew.bat build
 ```
-
-主要功能闭环已实现，AE2 与 RS 的基础操作此前已由用户在游戏内验证。本轮刷新调度、全知识展开与贴图改动尚未经过游戏内回归；大型知识列表、长时间运行及性能验证仍待完成。已知待办见[开发完成报告与待办](docs/开发完成报告与待办.md)，架构和验收设计见[技术设计文档](docs/EMC%20Virtual%20Storage%20Bridge%20Mod%20-%20Technical%20Design.md)。
