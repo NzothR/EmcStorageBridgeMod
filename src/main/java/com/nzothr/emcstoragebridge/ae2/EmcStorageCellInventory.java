@@ -49,7 +49,8 @@ public final class EmcStorageCellInventory implements StorageCell {
         ItemStack input = itemKey.toStack();
         long accepted = EmcTransactionCore.insert(owner, input, amount, policy(), mode == Actionable.MODULATE);
         if (mode == Actionable.MODULATE && accepted > 0) {
-            EmcDisplayCache.knownItemAdded(owner, ItemInfo.fromStack(EmcTransactionCore.withoutNbt(input)));
+            EmcDisplayCache.knownItemAdded(owner,
+                    ProjectEValueCache.getPersistentInfo(ItemInfo.fromStack(input)));
         }
         return accepted;
     }

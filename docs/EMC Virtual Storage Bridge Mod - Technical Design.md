@@ -874,7 +874,7 @@ RS Adapter  ─┘
 | 模式 | 行为 |
 | --- | --- |
 | Reject NBT | 携带 NBT 的物品不进入 EMC Space |
-| Allow NBT | 允许 NBT 栈进入；按原栈卖出 EMC，学习和库存键使用无 NBT 的物品 |
+| Allow NBT | 允许 NBT 栈进入；按原栈卖出 EMC，后续按 ProjectE 的持久 NBT 规则处理 |
 
 ### 14.2 Reject NBT
 
@@ -892,16 +892,16 @@ return cannot accept
 
 ### 14.3 Allow NBT
 
-Allow NBT 不代表本 Mod 会保存或输出 NBT。
+Allow NBT 的学习和网络视图遵循 ProjectE 转化桌的持久 NBT 规则，不由桥接层自行删除或保留标签。
 
 规则：
 
 - 用带 NBT 的原始栈调用 ProjectE，保留 ProjectE 对该输入栈的卖出 EMC 估值；
-- 将输入栈清除 NBT 后查询或授予 Knowledge；
-- 显示库存只使用无 NBT 的 ItemInfo，NBT 查询不能从虚拟空间提取；
+- 使用 `IEMCProxy.getPersistentInfo` 归一化新授予的 Knowledge 键；
+- 缓存展示、EMC 值查询和提取使用 Knowledge 中的精确 ItemInfo 键，与转化桌目标列表一致；
 - NBT 政策开关只决定入口是否接受带 NBT 的输入。
 
-若无 NBT 的基础物品无法学习，则插入失败，输入物品由 AE2 / RS 保留。
+ProjectE 的 NBT 处理器可按物品区分持久标签和临时标签。例如耐久等临时数据可以归并，ProjectE 配置为持久的数据继续保留。
 
 ## 15. AE2 集成设计
 

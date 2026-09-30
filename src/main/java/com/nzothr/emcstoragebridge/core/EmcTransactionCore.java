@@ -29,9 +29,10 @@ public final class EmcTransactionCore {
             return 0;
         }
 
-        // ProjectE values the actual input stack (some NBT-bearing items have a distinct sell value),
-        // while the bridge only learns and exposes the plain item variant.
-        ItemStack learnedStack = withoutNbt(stack);
+        // Match the transmutation table: use ProjectE's persistent-NBT rules for Knowledge, while
+        // calculating the EMC credit from the original input stack below.
+        ItemInfo sourceInfo = ItemInfo.fromStack(stack);
+        ItemInfo persistentInfo = ProjectEValueCache.getPersistentInfo(sourceInfo);
 
         var account = ProjectEAccountService.getWritableAccount(owner);
         if (account.isEmpty()) {
@@ -46,7 +47,7 @@ public final class EmcTransactionCore {
         }
 
         var provider = account.get().knowledge();
-        boolean alreadyKnown = provider.hasKnowledge(learnedStack);
+        boolean alreadyKnown = provider.hasKnowledge(persistentInfo);
         if (!execute) {
             return alreadyKnown || sellValue > 0 ? requested : 0;
         }
@@ -55,7 +56,7 @@ public final class EmcTransactionCore {
             EmcDisplayCache.beginBridgeLearn(owner);
             boolean learned;
             try {
-                learned = learn(account.get().player(), provider, learnedStack);
+                learned = learn(account.get().player(), provider, sourceInfo, persistentInfo);
             } finally {
                 EmcDisplayCache.endBridgeLearn(owner);
             }
@@ -77,22 +78,19 @@ public final class EmcTransactionCore {
             log("extract", owner, stack, requested, execute, 0, "empty-stack-or-non-positive-request");
             return 0;
         }
-        if (stack.hasTag()) {
-            log("extract", owner, stack, requested, execute, 0, "NBT-variants-are-not-exposed");
-            return 0;
-        }
-
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isEmpty()) {
             log("extract", owner, stack, requested, execute, 0, "ProjectE-account-unavailable-on-server-thread");
             return 0;
         }
-        if (!account.get().hasKnowledge(stack)) {
+        // ProjectE's transmutation targets are the exact ItemInfo entries in Knowledge.
+        ItemInfo targetInfo = ItemInfo.fromStack(stack);
+        if (!account.get().hasKnowledge(targetInfo)) {
             log("extract", owner, stack, requested, execute, 0, "item-not-in-ProjectE-Knowledge");
             return 0;
         }
 
-        long emcPerItem = ProjectEValueCache.getValue(ItemInfo.fromStack(stack));
+        long emcPerItem = ProjectEValueCache.getValue(targetInfo);
         if (emcPerItem <= 0) {
             log("extract", owner, stack, requested, execute, 0, "ProjectE-EMC-value-is-zero");
             return 0;
@@ -116,7 +114,7 @@ public final class EmcTransactionCore {
 
         // Re-read live state at execute time; another network may have spent EMC since simulation.
         var provider = writable.get().knowledge();
-        if (!provider.hasKnowledge(stack)) {
+        if (!provider.hasKnowledge(targetInfo)) {
             log("extract", owner, stack, requested, true, 0, "Knowledge-changed-before-execution");
             return 0;
         }
@@ -137,13 +135,6 @@ public final class EmcTransactionCore {
         if (execute) log(operation, owner, stack == null ? ItemStack.EMPTY : stack, requested, true, 0, reason);
     }
 
-    public static ItemStack withoutNbt(ItemStack stack) {
-        if (stack.isEmpty() || !stack.hasTag()) return stack.copy();
-        ItemStack plain = stack.copy();
-        plain.setTag(null);
-        return plain;
-    }
-
     private static void log(String operation, UUID owner, ItemStack stack, long requested, boolean execute,
             long accepted, String reason) {
         if (execute && EmcStorageBridgeConfig.LOG_TRANSACTIONS.get()) {
@@ -154,9 +145,8 @@ public final class EmcTransactionCore {
     }
 
     private static boolean learn(net.minecraft.server.level.ServerPlayer player,
-            moze_intel.projecte.api.capabilities.IKnowledgeProvider provider, ItemStack stack) {
-        ItemInfo source = ItemInfo.fromStack(stack);
-        ItemInfo persistent = IEMCProxy.INSTANCE.getPersistentInfo(source);
+            moze_intel.projecte.api.capabilities.IKnowledgeProvider provider, ItemInfo source,
+            ItemInfo persistent) {
         PlayerAttemptLearnEvent event = new PlayerAttemptLearnEvent(player, source, persistent);
         if (MinecraftForge.EVENT_BUS.post(event)) {
             return false;
@@ -167,6 +157,6 @@ public final class EmcTransactionCore {
         if (learned) {
             provider.syncKnowledgeChange(player, learnedInfo, true);
         }
-        return learned || provider.hasKnowledge(stack);
+        return learned || provider.hasKnowledge(persistent);
     }
 }

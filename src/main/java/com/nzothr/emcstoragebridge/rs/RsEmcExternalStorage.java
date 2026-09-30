@@ -20,6 +20,7 @@ import com.nzothr.emcstoragebridge.config.EmcStorageBridgeConfig;
 import com.nzothr.emcstoragebridge.core.EmcDisplayCache;
 import com.nzothr.emcstoragebridge.core.EmcTransactionCore;
 import com.nzothr.emcstoragebridge.core.NbtPolicy;
+import com.nzothr.emcstoragebridge.core.ProjectEValueCache;
 import moze_intel.projecte.api.ItemInfo;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
@@ -114,7 +115,8 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         long accepted = EmcTransactionCore.insert(owner(), item, size, blockEntity.getNbtPolicy(), action == Action.PERFORM);
         int remaining = (int) Math.max(0, size - accepted);
         if (action == Action.PERFORM && accepted > 0) {
-            EmcDisplayCache.knownItemAdded(owner(), ItemInfo.fromStack(EmcTransactionCore.withoutNbt(item)));
+            EmcDisplayCache.knownItemAdded(owner(),
+                    ProjectEValueCache.getPersistentInfo(ItemInfo.fromStack(item)));
         }
         return remaining == 0 ? ItemStack.EMPTY : remainder(prototype, remaining);
     }

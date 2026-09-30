@@ -100,7 +100,7 @@ public final class EmcDisplayCache {
         List<ItemStack> result = new ArrayList<>(state.snapshot.size());
         for (Map.Entry<ItemInfo, Long> entry : state.snapshot.entrySet()) {
             ItemStack stack = entry.getKey().createStack();
-            if (stack.isEmpty() || stack.hasTag()) continue;
+            if (stack.isEmpty()) continue;
             stack.setCount((int) Math.min(Integer.MAX_VALUE, entry.getValue()));
             result.add(stack);
         }
@@ -207,7 +207,7 @@ public final class EmcDisplayCache {
         }
         IKnowledgeProvider provider = account.get();
         State created = new State();
-        created.items = new ArrayList<>(provider.getKnowledge().stream().filter(info -> !info.hasNBT()).toList());
+        created.items = new ArrayList<>(provider.getKnowledge());
         created.items.sort((a, b) -> a.toString().compareTo(b.toString()));
         STATES.put(owner, created);
         if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {

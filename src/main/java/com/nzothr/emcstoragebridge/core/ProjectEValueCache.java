@@ -18,6 +18,11 @@ public final class ProjectEValueCache {
         return VALUES.computeIfAbsent(info, IEMCProxy.INSTANCE::getValue);
     }
 
+    /** Applies the same persistent-NBT normalization ProjectE uses in its transmutation table. */
+    public static ItemInfo getPersistentInfo(ItemInfo info) {
+        return IEMCProxy.INSTANCE.getPersistentInfo(info);
+    }
+
     public static long getSellValue(ItemStack stack) {
         if (stack.isEmpty()) {
             return 0;
