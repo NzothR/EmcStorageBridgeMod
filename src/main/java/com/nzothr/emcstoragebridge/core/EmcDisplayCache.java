@@ -120,7 +120,13 @@ public final class EmcDisplayCache {
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isEmpty()) return;
         State state = state(owner);
-        if (state != null && update(state, info, account.get().getEmc())) markChanged(owner);
+        // Only refresh keys already represented by the owner's exact Knowledge entries. A
+        // persistent-NBT-equivalent request must not create a new display key on extraction.
+        if (state != null && state.items.contains(info)
+                && account.get().getKnowledge().contains(info)
+                && update(state, info, account.get().getEmc())) {
+            markChanged(owner);
+        }
     }
 
     public static synchronized void knowledgeChanged(UUID owner) {

@@ -85,8 +85,11 @@ public final class EmcTransactionCore {
         }
         // ProjectE's transmutation targets are the exact ItemInfo entries in Knowledge.
         ItemInfo targetInfo = ItemInfo.fromStack(stack);
-        if (!account.get().hasKnowledge(targetInfo)) {
-            log("extract", owner, stack, requested, execute, 0, "item-not-in-ProjectE-Knowledge");
+        // hasKnowledge may treat a non-persistent NBT variant as equivalent to a learned key.
+        // Returning the caller's prototype in that case can recreate container contents (for
+        // example, a filled backpack) from an EMC entry that only represents the empty item.
+        if (!account.get().getKnowledge().contains(targetInfo)) {
+            log("extract", owner, stack, requested, execute, 0, "item-not-exactly-in-ProjectE-Knowledge");
             return 0;
         }
 
