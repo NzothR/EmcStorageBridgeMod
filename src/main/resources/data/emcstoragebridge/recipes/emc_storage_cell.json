@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "ae2:item_cell_housing"
+    },
+    {
+      "item": "ae2:fluid_cell_housing"
+    },
+    {
+      "item": "projecte:transmutation_tablet"
+    }
+  ],
+  "result": {
+    "item": "emcstoragebridge:emc_storage_cell"
+  },
+  "show_notification": true
+}
