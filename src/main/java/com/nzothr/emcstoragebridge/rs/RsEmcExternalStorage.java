@@ -36,7 +36,6 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
     private Map<CompoundTag, ItemStack> reportedStacks;
     private INetwork reportedNetwork;
     private long reportedRevision = Long.MIN_VALUE;
-    private long deferCacheSyncThroughTick = Long.MIN_VALUE;
     private boolean reportedActive;
     private RsEmcEntryRegistry.Entry entry;
 
@@ -57,9 +56,6 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
             reportedNetwork = network;
             reportedStacks = null;
         }
-        long gameTime = blockEntity.getLevel().getGameTime();
-        if (!networkChanged && gameTime <= deferCacheSyncThroughTick) return;
-        if (gameTime > deferCacheSyncThroughTick) deferCacheSyncThroughTick = Long.MIN_VALUE;
         if (reportedStacks != null && revision == reportedRevision && active == wasActive) return;
 
         int previousCount = reportedStacks == null ? -1 : reportedStacks.size();
@@ -117,6 +113,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         if (action == Action.PERFORM && accepted > 0) {
             EmcDisplayCache.knownItemAdded(owner(),
                     ProjectEValueCache.getPersistentInfo(ItemInfo.fromStack(item)));
+            recordPostTransactionSnapshot("insert", item, accepted);
         }
         return remaining == 0 ? ItemStack.EMPTY : remainder(prototype, remaining);
     }
@@ -156,12 +153,7 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
         long extracted = EmcTransactionCore.extract(owner(), item, Math.min(simulated, size), true);
         if (extracted > 0) {
             EmcDisplayCache.refreshKey(owner(), ItemInfo.fromStack(item));
-            deferCacheSyncThroughTick = blockEntity.getLevel().getGameTime();
-            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
-                LOGGER.info("[EMCStorageBridge] Deferred RS external storage cache diff until next tick after extraction owner={} item={} count={} tick={} network={}",
-                        owner(), prototype, extracted, deferCacheSyncThroughTick,
-                        Integer.toHexString(System.identityHashCode(reportedNetwork)));
-            }
+            recordPostTransactionSnapshot("extract", item, extracted);
         }
         ItemStack result = extracted <= 0 ? ItemStack.EMPTY
                 : withCount(prototype, (int) Math.min(extracted, Integer.MAX_VALUE));
@@ -239,6 +231,24 @@ public final class RsEmcExternalStorage implements IExternalStorage<ItemStack> {
             stacks.put(key(copy), copy);
         }
         return stacks;
+    }
+
+    /**
+     * RS applies a successful insert/extract to its shared network cache as part of the request.
+     * Move our diff baseline with the account state here so the next periodic update does not apply
+     * the same transaction delta to the aggregate cache a second time (possibly against another
+     * external storage that exposes the same item key).
+     */
+    private void recordPostTransactionSnapshot(String operation, ItemStack item, long amount) {
+        boolean active = owner() != null && isActive();
+        reportedStacks = active ? snapshot() : Map.of();
+        reportedRevision = EmcDisplayCache.revision(owner());
+        reportedActive = active;
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] RS recorded post-transaction snapshot operation={} owner={} item={} amount={} items={} revision={} network={}",
+                    operation, owner(), item, amount, reportedStacks.size(), reportedRevision,
+                    Integer.toHexString(System.identityHashCode(reportedNetwork)));
+        }
     }
 
     private void applyDifference(IStorageCache<ItemStack> cache, Map<CompoundTag, ItemStack> before,
