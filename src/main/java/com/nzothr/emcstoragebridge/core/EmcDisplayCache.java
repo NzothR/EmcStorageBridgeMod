@@ -120,12 +120,28 @@ public final class EmcDisplayCache {
         var account = ProjectEAccountService.getReadableAccount(owner);
         if (account.isEmpty()) return;
         State state = state(owner);
-        // Only refresh keys already represented by the owner's exact Knowledge entries. A
-        // persistent-NBT-equivalent request must not create a new display key on extraction.
-        if (state != null && state.items.contains(info)
-                && account.get().getKnowledge().contains(info)
-                && update(state, info, account.get().getEmc())) {
-            markChanged(owner);
+        if (state == null) return;
+
+        // Require an exact learned key so persistent-NBT-equivalent variants cannot be
+        // introduced by an extraction. The display cache can lag behind Knowledge changes,
+        // though, so do not require the key to already be in state.items.
+        if (!account.get().getKnowledge().contains(info)) {
+            if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+                LOGGER.info("[EMCStorageBridge] Skipped immediate display refresh for unknown exact key owner={} item={}",
+                        owner, info);
+            }
+            return;
+        }
+
+        boolean added = !state.items.contains(info);
+        if (added) state.items.add(info);
+        long previous = state.snapshot.getOrDefault(info, 0L);
+        boolean changed = update(state, info, account.get().getEmc());
+        long current = state.snapshot.getOrDefault(info, 0L);
+        if (changed || added) markChanged(owner);
+        if (EmcStorageBridgeConfig.ENABLE_DEBUG_LOG.get()) {
+            LOGGER.info("[EMCStorageBridge] Immediately refreshed EMC display key owner={} item={} previous={} current={} trackedBefore={} changed={}",
+                    owner, info, previous, current, !added, changed);
         }
     }
 
